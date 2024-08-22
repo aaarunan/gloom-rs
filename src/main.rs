@@ -15,6 +15,7 @@ use std::sync::{Mutex, Arc, RwLock};
 mod shader;
 mod util;
 
+use gl::{BindBuffer, BindVertexArray, EnableVertexArrayAttrib};
 use glutin::event::{Event, WindowEvent, DeviceEvent, KeyboardInput, ElementState::{Pressed, Released}, VirtualKeyCode::{self, *}};
 use glutin::event_loop::ControlFlow;
 
@@ -52,22 +53,48 @@ fn offset<T>(n: u32) -> *const c_void {
 // ptr::null()
 
 
-// == // Generate your VAO here
+// This should:
+// * Generate a VAO and bind it
+// * Generate a VBO and bind it
+// * Fill it with data
+// * Configure a VAP for the data and enable it
+// * Generate a IBO and bind it
+// * Fill it with data
+// * Return the ID of the VAO
+
+
 unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>) -> u32 {
-    // Implement me!
+    let mut array = 0;
+    gl::GenVertexArrays(1, &mut array);
 
-    // Also, feel free to delete comments :)
+    gl::BindVertexArray(array);
 
-    // This should:
-    // * Generate a VAO and bind it
-    // * Generate a VBO and bind it
-    // * Fill it with data
-    // * Configure a VAP for the data and enable it
-    // * Generate a IBO and bind it
-    // * Fill it with data
-    // * Return the ID of the VAO
+    let mut buffer = 0;
+    gl::GenBuffers(1, &mut buffer);
 
-    0
+    gl::BindBuffer(gl::ARRAY_BUFFER, buffer);
+
+    gl::BufferData(gl::ARRAY_BUFFER, byte_size_of_array(vertices), pointer_to_array(vertices), gl::STATIC_DRAW);
+
+    let dimensions = 3;
+
+    let attrib = 0;
+
+    gl::VertexAttribPointer(attrib, dimensions, gl::FLOAT, gl::FALSE, size_of::<f32>() * dimensions, offset::<c_void>(0));
+
+
+    gl::EnableVertexAttribArray(attrib);
+
+    let mut index_buffer = 0;
+
+    gl::GenBuffers(1, &mut index_buffer);
+
+    gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, index_buffer);
+
+    gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, byte_size_of_array(indices), pointer_to_array(indices), gl::STATIC_DRAW);
+
+    array
+    
 }
 
 
@@ -132,25 +159,30 @@ fn main() {
 
         // == // Set up your VAO around here
 
-        let my_vao = unsafe { 1337 };
+        let vertices: Vec<f32> = vec![
+            -0.5, -0.5, 0.0,
+            0.5, -0.5, 0.0,
+            0.0,  0.5, 0.0,
+        ];
+
+        let indices: Vec<u32> = vec![
+            0, 1, 2
+        ];
+
+
+        unsafe {
+            create_vao(&vertices, &indices);
+        }
 
 
         // == // Set up your shaders here
 
-        // Basic usage of shader helper:
-        // The example code below creates a 'shader' object.
-        // It which contains the field `.program_id` and the method `.activate()`.
-        // The `.` in the path is relative to `Cargo.toml`.
-        // This snippet is not enough to do the exercise, and will need to be modified (outside
-        // of just using the correct path), but it only needs to be called once
-
-        /*
-        let simple_shader = unsafe {
+        unsafe {
             shader::ShaderBuilder::new()
-                .attach_file("./path/to/simple/shader.file")
-                .link()
-        };
-        */
+                .attach_file("./shaders/simple.frag")
+                .attach_file("./shaders/simple.vert")
+                .link().activate();
+        }
 
 
         // Used to demonstrate keyboard handling for exercise 2.
@@ -218,6 +250,8 @@ fn main() {
 
                 // == // Issue the necessary gl:: commands to draw your scene here
 
+                gl::DrawElements(gl::TRIANGLES, indices.len() as i32, gl::UNSIGNED_INT, ptr::null());
+
 
 
             }
@@ -231,6 +265,7 @@ fn main() {
     // == //
     // == // From here on down there are only internals.
     // == //
+
 
 
     // Keep track of the health of the rendering thread
