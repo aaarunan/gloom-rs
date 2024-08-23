@@ -15,7 +15,6 @@ use std::{mem, os::raw::c_void, ptr};
 mod shader;
 mod util;
 
-use gl::{BindBuffer, BindVertexArray, EnableVertexArrayAttrib};
 use glutin::event::{
     DeviceEvent,
     ElementState::{Pressed, Released},
@@ -67,7 +66,14 @@ fn offset<T>(n: u32) -> *const c_void {
 // * Fill it with data
 // * Return the ID of the VAO
 
-unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>) -> u32 {
+unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>, colors: &Vec<f32>) -> u32 {
+    let mut vertices_and_colors = Vec::new();
+
+    for (vertex, color) in vertices.chunks(3).zip(colors.chunks(4)) {
+        vertices_and_colors.extend_from_slice(vertex);
+        vertices_and_colors.extend_from_slice(color);
+    }
+
     let mut array = 0;
     gl::GenVertexArrays(1, &mut array);
 
@@ -80,25 +86,36 @@ unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>) -> u32 {
 
     gl::BufferData(
         gl::ARRAY_BUFFER,
-        byte_size_of_array(vertices),
-        pointer_to_array(vertices),
+        byte_size_of_array(&vertices_and_colors),
+        pointer_to_array(&vertices_and_colors),
         gl::STATIC_DRAW,
     );
-
-    let dimensions = 3;
 
     let attrib = 0;
 
     gl::VertexAttribPointer(
         attrib,
-        dimensions,
+        3,
         gl::FLOAT,
         gl::FALSE,
-        size_of::<f32>() * dimensions,
+        size_of::<f32>() * 7,
         offset::<c_void>(0),
     );
 
     gl::EnableVertexAttribArray(attrib);
+
+    let color = 1;
+
+    gl::VertexAttribPointer(
+        color,
+        4,
+        gl::FLOAT,
+        gl::FALSE,
+        size_of::<f32>() * 7,
+        offset::<f32>(3),
+    );
+
+    gl::EnableVertexAttribArray(color);
 
     let mut index_buffer = 0;
 
@@ -190,27 +207,13 @@ fn main() {
 
         // == // Set up your VAO around here
 
-        let vertices: Vec<f32> = vec![
-            // Triangle 1
-            -0.2, -0.2, 0.0, 0.2, -0.2, 0.0, 0.0, 0.2, 0.0, // Triangle 2
-            0.3, 0.3, 0.0, 0.7, 0.3, 0.0, 0.5, 0.7, 0.0, // Triangle 3
-            -0.7, -0.7, 0.0, -0.3, -0.7, 0.0, -0.5, -0.3, 0.0, // Triangle 4
-            0.3, -0.5, 0.0, 0.7, -0.5, 0.0, 0.5, -0.1, 0.0, // Triangle 5
-            -0.5, 0.5, 0.0, -0.3, 0.9, 0.0, -0.7, 0.9, 0.0,
-        ];
+        let vertices: Vec<f32> = vec![0.6, -0.8, -1.2, 0.0, 0.4, 0.0, -0.8, -0.2, 1.2];
 
-        let indices: Vec<u32> = vec![
-            // Triangle 1
-            0, 1, 2, // Triangle 2
-            3, 4, 5, // Triangle 3
-            6, 7, 8, // Triangle 4
-            9, 10, 11, // Triangle 5
-            12, 13, 14,
-        ];
+        let indices: Vec<u32> = vec![0, 1, 2];
 
-        unsafe {
-            create_vao(&vertices, &indices);
-        }
+        let colors: Vec<f32> = vec![0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0];
+
+        let vao = unsafe { create_vao(&vertices, &indices, &colors) };
 
         // == // Set up your shaders here
 
@@ -282,6 +285,8 @@ fn main() {
                 gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
                 // == // Issue the necessary gl:: commands to draw your scene here
+
+                gl::BindVertexArray(vao);
 
                 gl::DrawElements(
                     gl::TRIANGLES,
