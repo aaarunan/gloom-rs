@@ -8,6 +8,7 @@
 #![allow(unused_variables)]
 */
 extern crate nalgebra_glm as glm;
+use std::convert::identity;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::{mem, os::raw::c_void, ptr};
@@ -15,6 +16,7 @@ use std::{mem, os::raw::c_void, ptr};
 mod shader;
 mod util;
 
+use glm::vec3;
 use glutin::event::{
     DeviceEvent,
     ElementState::{Pressed, Released},
@@ -201,17 +203,52 @@ fn main() {
             );
         }
 
-        // == // Set up your VAO around here
+        // Position
+        let mut pitch = 0_f32;
+        let mut yaw = 0_f32;
+        let mut x = 0_f32;
+        let mut y = 0_f32;
+        let mut z = -3_f32;
 
-        // == // Set up your VAO around here
+        let vertices: Vec<f32> = vec![
+            // Third triangle
+            0.7, 0.3, 0.3, // Vertex 4
+            0.3, 0.7, 0.3, // Vertex 5
+            -0.7, 0.3, 0.3, // Vertex 6
+            // Second triangle
+            0.6, 0.2, 0.2, // Vertex 4
+            0.2, 0.6, 0.2, // Vertex 5
+            -0.6, 0.2, 0.2, // Vertex 6
+            // First triangle
+            0.5, 0.1, 0.1, // Vertex 4
+            0.1, 0.5, 0.1, // Vertex 5
+            -0.5, 0.1, 0.1, // Vertex 6
+        ];
 
-        // == // Set up your VAO around here
+        // Paint front and back...
+        let indices: Vec<u32> = vec![
+            6, 7, 8, // Third triangle
+            3, 4, 5, // Second triangle
+            0, 1, 2, // First triangle
+            2, 1, 0, // First triangle
+            5, 4, 3, // Second triangle
+            8, 7, 6, // Third triangle
+        ];
 
-        let vertices: Vec<f32> = vec![0.6, -0.8, -1.2, 0.0, 0.4, 0.0, -0.8, -0.2, 1.2];
-
-        let indices: Vec<u32> = vec![0, 1, 2];
-
-        let colors: Vec<f32> = vec![0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0];
+        let colors: Vec<f32> = vec![
+            // Colors for first triangle (red, transparent)
+            1.0, 0.0, 0.0, 0.5, // Red
+            1.0, 0.0, 0.0, 0.5, // Red
+            1.0, 0.0, 0.0, 0.5, // Red
+            // Colors for second triangle (green, transparent)
+            1.0, 1.0, 0.0, 0.5, // Green
+            1.0, 1.0, 0.0, 0.5, // Green
+            1.0, 1.0, 0.0, 0.5, // Green
+            // Colors for third triangle (blue, transparent)
+            0.0, 0.0, 1.0, 0.5, // Blue
+            0.0, 0.0, 1.0, 0.5, // Blue
+            0.0, 0.0, 1.0, 0.5, // Blue
+        ];
 
         let vao = unsafe { create_vao(&vertices, &indices, &colors) };
 
@@ -225,9 +262,6 @@ fn main() {
                 .activate();
         }
 
-        // Used to demonstrate keyboard handling for exercise 2.
-        let mut _arbitrary_number = 0.0; // feel free to remove
-
         // The main rendering loop
         let first_frame_time = std::time::Instant::now();
         let mut previous_frame_time = first_frame_time;
@@ -237,6 +271,18 @@ fn main() {
             let elapsed = now.duration_since(first_frame_time).as_secs_f32();
             let delta_time = now.duration_since(previous_frame_time).as_secs_f32();
             previous_frame_time = now;
+
+            let projection = glm::perspective(window_aspect_ratio, 81_f32, 0.1_f32, 100_f32);
+
+            let forward_t = glm::translate(&glm::identity::<f32, 4>(), &glm::vec3(0_f32, 0_f32, z));
+            let sideways_t =
+                glm::translate(&glm::identity::<f32, 4>(), &glm::vec3(x, 0_f32, 0_f32));
+            let up_t = glm::translate(&glm::identity::<f32, 4>(), &glm::vec3(0_f32, y, 0_f32));
+            let pitch_t = glm::rotation(pitch, &glm::vec3(1_f32, 0_f32, 0_f32));
+            let yaw_t = glm::rotation(yaw, &glm::vec3(0_f32, 1_f32, 0_f32));
+
+            let transformation = projection * pitch_t * yaw_t * forward_t * sideways_t * up_t;
+            unsafe { gl::UniformMatrix4fv(0, 1, gl::FALSE, transformation.as_ptr()) };
 
             // Handle resize events
             if let Ok(mut new_size) = window_size.lock() {
@@ -252,16 +298,53 @@ fn main() {
             }
 
             // Handle keyboard input
+            let rotation_speed = 0.8_f32;
+            let movement_speed = 2_f32;
+
+            let view_rotation = glm::rotation(-yaw, &glm::vec3(0_f32, 1_f32, 0_f32))
+                * glm::rotation(-pitch, &glm::vec3(1_f32, 0_f32, 0_f32));
+            let forward = view_rotation * glm::vec4(0_f32, 0_f32, 1_f32, 1_f32);
+            let right = view_rotation * glm::vec4(1_f32, 0_f32, 0_f32, 1_f32);
             if let Ok(keys) = pressed_keys.lock() {
                 for key in keys.iter() {
                     match key {
                         // The `VirtualKeyCode` enum is defined here:
                         //    https://docs.rs/winit/0.25.0/winit/event/enum.VirtualKeyCode.html
-                        VirtualKeyCode::A => {
-                            _arbitrary_number += delta_time;
-                        }
                         VirtualKeyCode::D => {
-                            _arbitrary_number -= delta_time;
+                            x += delta_time * movement_speed * right.x;
+                            y += delta_time * movement_speed * right.y;
+                            z += delta_time * movement_speed * right.z;
+                        }
+                        VirtualKeyCode::A => {
+                            x -= delta_time * movement_speed * right.x;
+                            y -= delta_time * movement_speed * right.y;
+                            z -= delta_time * movement_speed * right.z;
+                        }
+                        VirtualKeyCode::W => {
+                            x += delta_time * movement_speed * forward.x;
+                            y += delta_time * movement_speed * forward.y;
+                            z += delta_time * movement_speed * forward.z;
+                        }
+                        VirtualKeyCode::S => {
+                            x -= delta_time * movement_speed * forward.x;
+                            y -= delta_time * movement_speed * forward.y;
+                            z -= delta_time * movement_speed * forward.z;
+                        }
+                        VirtualKeyCode::Space => y += delta_time * movement_speed,
+                        VirtualKeyCode::LShift => y -= delta_time * movement_speed,
+                        VirtualKeyCode::Left => yaw += delta_time * rotation_speed,
+                        VirtualKeyCode::Right => yaw -= delta_time * rotation_speed,
+                        VirtualKeyCode::Up => {
+                            pitch = f32::min(
+                                pitch + delta_time * rotation_speed,
+                                glm::pi::<f32>() / 2_f32,
+                            )
+                        }
+                        VirtualKeyCode::Down => {
+                            pitch = f32::max(
+                                pitch - delta_time * rotation_speed,
+                                -glm::pi::<f32>() / 2_f32,
+                            )
                         }
 
                         // default handler:
