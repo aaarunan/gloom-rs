@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::{mem, os::raw::c_void, ptr};
 
+mod mesh;
 mod shader;
 mod util;
 
@@ -24,6 +25,7 @@ use glutin::event::{
     WindowEvent,
 };
 use glutin::event_loop::ControlFlow;
+use mesh::{Mesh, Terrain};
 
 // initial window size
 const INITIAL_SCREEN_W: u32 = 800;
@@ -67,10 +69,10 @@ fn offset<T>(n: u32) -> *const c_void {
 // * Fill it with data
 // * Return the ID of the VAO
 
-unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>, colors: &Vec<f32>) -> u32 {
+unsafe fn create_vao(mesh: &Mesh) -> u32 {
     let mut vertices_and_colors = Vec::new();
 
-    for (vertex, color) in vertices.chunks(3).zip(colors.chunks(4)) {
+    for (vertex, color) in mesh.vertices.chunks(3).zip(mesh.colors.chunks(4)) {
         vertices_and_colors.extend_from_slice(vertex);
         vertices_and_colors.extend_from_slice(color);
     }
@@ -126,8 +128,8 @@ unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>, colors: &Vec<f32>)
 
     gl::BufferData(
         gl::ELEMENT_ARRAY_BUFFER,
-        byte_size_of_array(indices),
-        pointer_to_array(indices),
+        byte_size_of_array(&mesh.indices),
+        pointer_to_array(&mesh.indices),
         gl::STATIC_DRAW,
     );
 
@@ -209,47 +211,8 @@ fn main() {
         let mut y = 0_f32;
         let mut z = -3_f32;
 
-        let vertices: Vec<f32> = vec![
-            // Third triangle
-            0.7, 0.3, 0.3, // Vertex 4
-            0.3, 0.7, 0.3, // Vertex 5
-            -0.7, 0.3, 0.3, // Vertex 6
-            // Second triangle
-            0.6, 0.2, 0.2, // Vertex 4
-            0.2, 0.6, 0.2, // Vertex 5
-            -0.6, 0.2, 0.2, // Vertex 6
-            // First triangle
-            0.5, 0.1, 0.1, // Vertex 4
-            0.1, 0.5, 0.1, // Vertex 5
-            -0.5, 0.1, 0.1, // Vertex 6
-        ];
-
-        // Paint front and back...
-        let indices: Vec<u32> = vec![
-            0, 1, 2, // First triangle
-            3, 4, 5, // Second triangle
-            6, 7, 8, // Third triangle
-            8, 7, 6, // Third triangle
-            5, 4, 3, // Second triangle
-            2, 1, 0, // First triangle
-        ];
-
-        let colors: Vec<f32> = vec![
-            // Colors for first triangle (red, transparent)
-            1.0, 0.0, 0.0, 0.5, // Red
-            1.0, 0.0, 0.0, 0.5, // Red
-            1.0, 0.0, 0.0, 0.5, // Red
-            // Colors for second triangle (green, transparent)
-            1.0, 1.0, 0.0, 0.5, // Green
-            1.0, 1.0, 0.0, 0.5, // Green
-            1.0, 1.0, 0.0, 0.5, // Green
-            // Colors for third triangle (blue, transparent)
-            0.0, 0.0, 1.0, 0.5, // Blue
-            0.0, 0.0, 1.0, 0.5, // Blue
-            0.0, 0.0, 1.0, 0.5, // Blue
-        ];
-
-        let vao = unsafe { create_vao(&vertices, &indices, &colors) };
+        let terrainModel = Terrain::load("resources/lunarsurface.obj");
+        let vao = unsafe { create_vao(&terrainModel) };
 
         // == // Set up your shaders here
 
@@ -279,12 +242,14 @@ fn main() {
             let up_t = glm::translate(&glm::identity::<f32, 4>(), &glm::vec3(0_f32, y, 0_f32));
             let pitch_t = glm::rotation(pitch, &glm::vec3(1_f32, 0_f32, 0_f32));
             let yaw_t = glm::rotation(yaw, &glm::vec3(0_f32, 1_f32, 0_f32));
-            let flip_all = glm::mat4(
-                -1_f32, 0_f32, 0_f32, 0_f32, 0_f32, -1_f32, 0_f32, 0_f32, 0_f32, 0_f32, -1_f32,
-                0_f32, 0_f32, 0_f32, 0_f32, 1_f32,
+            let flip_z = glm::mat4(
+                // To fix correct back face
+                // culling.
+                1_f32, 0_f32, 0_f32, 0_f32, 0_f32, 1_f32, 0_f32, 0_f32, 0_f32, 0_f32, -1_f32, 0_f32,
+                0_f32, 0_f32, 0_f32, 1_f32,
             );
             let transformation =
-                projection * pitch_t * yaw_t * forward_t * sideways_t * up_t * flip_all;
+                projection * pitch_t * yaw_t * forward_t * sideways_t * up_t * flip_z;
             unsafe { gl::UniformMatrix4fv(0, 1, gl::FALSE, transformation.as_ptr()) };
 
             // Handle resize events
@@ -373,10 +338,9 @@ fn main() {
                 // == // Issue the necessary gl:: commands to draw your scene here
 
                 gl::BindVertexArray(vao);
-
                 gl::DrawElements(
                     gl::TRIANGLES,
-                    indices.len() as i32,
+                    terrainModel.indices.len() as i32,
                     gl::UNSIGNED_INT,
                     ptr::null(),
                 );

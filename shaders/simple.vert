@@ -8,6 +8,6 @@ uniform layout(location = 0) mat4 t;
 
 void main()
 {
-    gl_Position = t * vec4(position, 1);
+    gl_Position = t * vec4(position, 1000.0);
     fragColor = color;
 }
