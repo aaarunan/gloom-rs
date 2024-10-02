@@ -15,6 +15,7 @@ use std::{mem, os::raw::c_void, ptr};
 mod shader;
 mod util;
 
+use glm::Mat4;
 use glutin::event::{
     DeviceEvent,
     ElementState::{Pressed, Released},
@@ -225,12 +226,12 @@ fn main() {
 
         // Paint front and back...
         let indices: Vec<u32> = vec![
-            6, 7, 8, // Third triangle
-            3, 4, 5, // Second triangle
             0, 1, 2, // First triangle
-            2, 1, 0, // First triangle
-            5, 4, 3, // Second triangle
+            3, 4, 5, // Second triangle
+            6, 7, 8, // Third triangle
             8, 7, 6, // Third triangle
+            5, 4, 3, // Second triangle
+            2, 1, 0, // First triangle
         ];
 
         let colors: Vec<f32> = vec![
@@ -278,8 +279,12 @@ fn main() {
             let up_t = glm::translate(&glm::identity::<f32, 4>(), &glm::vec3(0_f32, y, 0_f32));
             let pitch_t = glm::rotation(pitch, &glm::vec3(1_f32, 0_f32, 0_f32));
             let yaw_t = glm::rotation(yaw, &glm::vec3(0_f32, 1_f32, 0_f32));
-
-            let transformation = projection * pitch_t * yaw_t * forward_t * sideways_t * up_t;
+            let flip_all = glm::mat4(
+                -1_f32, 0_f32, 0_f32, 0_f32, 0_f32, -1_f32, 0_f32, 0_f32, 0_f32, 0_f32, -1_f32,
+                0_f32, 0_f32, 0_f32, 0_f32, 1_f32,
+            );
+            let transformation =
+                projection * pitch_t * yaw_t * forward_t * sideways_t * up_t * flip_all;
             unsafe { gl::UniformMatrix4fv(0, 1, gl::FALSE, transformation.as_ptr()) };
 
             // Handle resize events
