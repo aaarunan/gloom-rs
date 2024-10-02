@@ -16,7 +16,6 @@ mod mesh;
 mod shader;
 mod util;
 
-use glm::Mat4;
 use glutin::event::{
     DeviceEvent,
     ElementState::{Pressed, Released},
@@ -25,6 +24,7 @@ use glutin::event::{
     WindowEvent,
 };
 use glutin::event_loop::ControlFlow;
+use itertools::izip;
 use mesh::{Mesh, Terrain};
 
 // initial window size
@@ -36,7 +36,7 @@ const INITIAL_SCREEN_H: u32 = 600;
 // Get the size of an arbitrary array of numbers measured in bytes
 // Example usage:  byte_size_of_array(my_array)
 fn byte_size_of_array<T>(val: &[T]) -> isize {
-    std::mem::size_of_val(&val[..]) as isize
+    std::mem::size_of_val(val) as isize
 }
 
 // Get the OpenGL-compatible pointer to an arbitrary array of numbers
@@ -70,62 +70,68 @@ fn offset<T>(n: u32) -> *const c_void {
 // * Return the ID of the VAO
 
 unsafe fn create_vao(mesh: &Mesh) -> u32 {
-    let mut vertices_and_colors = Vec::new();
-
-    for (vertex, color) in mesh.vertices.chunks(3).zip(mesh.colors.chunks(4)) {
-        vertices_and_colors.extend_from_slice(vertex);
-        vertices_and_colors.extend_from_slice(color);
-    }
+    let mut data = Vec::new();
+    izip!(
+        mesh.vertices.chunks(3),
+        mesh.colors.chunks(4),
+        mesh.normals.chunks(3)
+    )
+    .for_each(|(vertex, color, normal)| {
+        data.extend_from_slice(vertex);
+        data.extend_from_slice(color);
+        data.extend_from_slice(normal)
+    });
 
     let mut array = 0;
     gl::GenVertexArrays(1, &mut array);
-
     gl::BindVertexArray(array);
 
     let mut buffer = 0;
     gl::GenBuffers(1, &mut buffer);
-
     gl::BindBuffer(gl::ARRAY_BUFFER, buffer);
-
     gl::BufferData(
         gl::ARRAY_BUFFER,
-        byte_size_of_array(&vertices_and_colors),
-        pointer_to_array(&vertices_and_colors),
+        byte_size_of_array(&data),
+        pointer_to_array(&data),
         gl::STATIC_DRAW,
     );
 
-    let attrib = 0;
-
+    let vertex_index = 0;
     gl::VertexAttribPointer(
-        attrib,
+        vertex_index,
         3,
         gl::FLOAT,
         gl::FALSE,
-        size_of::<f32>() * 7,
-        offset::<c_void>(0),
+        size_of::<f32>() * 10,
+        offset::<f32>(0),
     );
+    gl::EnableVertexAttribArray(vertex_index);
 
-    gl::EnableVertexAttribArray(attrib);
-
-    let color = 1;
-
+    let color_index = 1;
     gl::VertexAttribPointer(
-        color,
+        color_index,
         4,
         gl::FLOAT,
         gl::FALSE,
-        size_of::<f32>() * 7,
+        size_of::<f32>() * 10,
         offset::<f32>(3),
     );
+    gl::EnableVertexAttribArray(color_index);
 
-    gl::EnableVertexAttribArray(color);
+    let normal_index = 2;
+    gl::VertexAttribPointer(
+        normal_index,
+        3,
+        gl::FLOAT,
+        gl::FALSE,
+        size_of::<f32>() * 10,
+        offset::<f32>(7),
+    );
+    gl::EnableVertexAttribArray(normal_index);
 
     let mut index_buffer = 0;
-
     gl::GenBuffers(1, &mut index_buffer);
-
     gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, index_buffer);
-
     gl::BufferData(
         gl::ELEMENT_ARRAY_BUFFER,
         byte_size_of_array(&mesh.indices),
@@ -211,8 +217,8 @@ fn main() {
         let mut y = 0_f32;
         let mut z = -3_f32;
 
-        let terrainModel = Terrain::load("resources/lunarsurface.obj");
-        let vao = unsafe { create_vao(&terrainModel) };
+        let terrain_model = Terrain::load("resources/lunarsurface.obj");
+        let vao = unsafe { create_vao(&terrain_model) };
 
         // == // Set up your shaders here
 
@@ -340,7 +346,7 @@ fn main() {
                 gl::BindVertexArray(vao);
                 gl::DrawElements(
                     gl::TRIANGLES,
-                    terrainModel.indices.len() as i32,
+                    terrain_model.indices.len() as i32,
                     gl::UNSIGNED_INT,
                     ptr::null(),
                 );
