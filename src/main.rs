@@ -8,7 +8,6 @@
 #![allow(unused_variables)]
 */
 extern crate nalgebra_glm as glm;
-use std::convert::identity;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::{mem, os::raw::c_void, ptr};
@@ -16,7 +15,6 @@ use std::{mem, os::raw::c_void, ptr};
 mod shader;
 mod util;
 
-use glm::vec3;
 use glutin::event::{
     DeviceEvent,
     ElementState::{Pressed, Released},
