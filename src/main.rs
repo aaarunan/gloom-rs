@@ -13,6 +13,7 @@ use std::thread;
 use std::{mem, os::raw::c_void, ptr};
 
 mod mesh;
+mod scene_graph;
 mod shader;
 mod util;
 
@@ -26,6 +27,8 @@ use glutin::event::{
 use glutin::event_loop::ControlFlow;
 use itertools::izip;
 use mesh::{Mesh, Terrain, Helicopter};
+use scene_graph::SceneNode; 
+
 
 // initial window size
 const INITIAL_SCREEN_W: u32 = 800;
@@ -228,9 +231,29 @@ fn main() {
 
         let helicopter_door_vao = unsafe { create_vao(&helicopter_model.door) };
 
-        let helicopter_tail_vao = unsafe { create_vao(&helicopter_model.tail_rotor) };
+        let helicopter_tail_vao = 
+        unsafe { create_vao(&helicopter_model.tail_rotor) };
 
         let helicopter_main_rotor_vao = unsafe { create_vao(&helicopter_model.main_rotor)};
+
+        // Set up scene graph
+
+        let mut helicopter_body_node = SceneNode::from_vao(helicopter_body_vao, helicopter_model.body.indices.len() as i32);
+
+        let helicopter_door_node = SceneNode::from_vao(helicopter_door_vao, helicopter_model.door.indices.len() as i32);
+
+        let helicopter_tail_node = SceneNode::from_vao(helicopter_tail_vao, helicopter_model.tail_rotor.indices.len() as i32);
+
+        let helicopter_main_rotor_node = SceneNode::from_vao(helicopter_main_rotor_vao, helicopter_model.main_rotor.indices.len() as i32);
+
+        helicopter_body_node.add_child(&helicopter_door_node);
+        helicopter_body_node.add_child(&helicopter_tail_node);
+        helicopter_body_node.add_child(&helicopter_main_rotor_node);
+        helicopter_body_node.print();
+
+        let mut terrain_node = SceneNode::from_vao(terrain_vao, terrain_model.indices.len() as i32);
+
+        terrain_node.add_child(&helicopter_body_node);
 
 
 
