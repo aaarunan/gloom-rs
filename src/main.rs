@@ -316,14 +316,14 @@ fn main() {
             let up_t = glm::translate(&glm::identity::<f32, 4>(), &glm::vec3(0_f32, y, 0_f32));
             let pitch_t = glm::rotation(pitch, &glm::vec3(1_f32, 0_f32, 0_f32));
             let yaw_t = glm::rotation(yaw, &glm::vec3(0_f32, 1_f32, 0_f32));
-            let flip_z = glm::mat4(
+            let mirror_flip = glm::mat4(
                 // To fix correct back face
                 // culling.
-                1_f32, 0_f32, 0_f32, 0_f32, 0_f32, 1_f32, 0_f32, 0_f32, 0_f32, 0_f32, -1_f32, 0_f32,
-                0_f32, 0_f32, 0_f32, 1_f32,
+                -1_f32, 0_f32, 0_f32, 0_f32, 0_f32, -1_f32, 0_f32, 0_f32, 0_f32, 0_f32, 1_f32,
+                0_f32, 0_f32, 0_f32, 0_f32, 1_f32,
             );
             let transformation =
-                projection * pitch_t * yaw_t * forward_t * sideways_t * up_t * flip_z;
+                projection * pitch_t * yaw_t * forward_t * sideways_t * up_t * mirror_flip;
             unsafe { gl::UniformMatrix4fv(0, 1, gl::FALSE, transformation.as_ptr()) };
 
             // Handle resize events
