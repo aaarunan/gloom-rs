@@ -144,6 +144,29 @@ unsafe fn create_vao(mesh: &Mesh) -> u32 {
     array
 }
 
+unsafe fn draw_scene(
+    node: &scene_graph::SceneNode,
+    view_projection_matrix: &glm::Mat4,
+    transformation_so_far: &glm::Mat4,
+) {
+    // Perform any logic needed before drawing the node
+    // Check if node is drawable, if so: set uniforms, bind VAO and draw VAO
+    // Recurse
+    // == // Issue the necessary gl:: commands to draw your scene here
+
+    gl::BindVertexArray(node.vao_id);
+    gl::DrawElements(
+        gl::TRIANGLES,
+        node.index_count,
+        gl::UNSIGNED_INT,
+        ptr::null(),
+    );
+
+    for &child in &node.children {
+        draw_scene(&*child, view_projection_matrix, transformation_so_far);
+    }
+}
+
 fn main() {
     // Set up the necessary objects to deal with windows and event handling
     let el = glutin::event_loop::EventLoop::new();
@@ -386,47 +409,9 @@ fn main() {
                 gl::ClearColor(0.035, 0.046, 0.078, 1.0); // night sky
                 gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
-                // == // Issue the necessary gl:: commands to draw your scene here
+                // Draw the scene
 
-                gl::BindVertexArray(terrain_vao);
-                gl::DrawElements(
-                    gl::TRIANGLES,
-                    terrain_model.indices.len() as i32,
-                    gl::UNSIGNED_INT,
-                    ptr::null(),
-                );
-
-                gl::BindVertexArray(helicopter_body_vao);
-                gl::DrawElements(
-                    gl::TRIANGLES,
-                    helicopter_model.body.indices.len() as i32,
-                    gl::UNSIGNED_INT,
-                    ptr::null(),
-                );
-
-                gl::BindVertexArray(helicopter_door_vao);
-                gl::DrawElements(
-                    gl::TRIANGLES,
-                    helicopter_model.door.indices.len() as i32,
-                    gl::UNSIGNED_INT,
-                    ptr::null(),
-                );
-
-                gl::BindVertexArray(helicopter_tail_vao);
-                gl::DrawElements(
-                    gl::TRIANGLES,
-                    helicopter_model.tail_rotor.indices.len() as i32,
-                    gl::UNSIGNED_INT,
-                    ptr::null(),
-                );
-
-                gl::BindVertexArray(helicopter_main_rotor_vao);
-                gl::DrawElements(
-                    gl::TRIANGLES,
-                    helicopter_model.main_rotor.indices.len() as i32,
-                    gl::UNSIGNED_INT,
-                    ptr::null(),
-                );
+                draw_scene(&terrain_node, &transformation, &glm::identity::<f32, 4>());
             }
 
             // Display the new color buffer on the display
