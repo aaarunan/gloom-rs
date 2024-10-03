@@ -25,7 +25,7 @@ use glutin::event::{
 };
 use glutin::event_loop::ControlFlow;
 use itertools::izip;
-use mesh::{Mesh, Terrain};
+use mesh::{Mesh, Terrain, Helicopter};
 
 // initial window size
 const INITIAL_SCREEN_W: u32 = 800;
@@ -217,8 +217,22 @@ fn main() {
         let mut y = 0_f32;
         let mut z = -3_f32;
 
+        // Load models
+
         let terrain_model = Terrain::load("resources/lunarsurface.obj");
-        let vao = unsafe { create_vao(&terrain_model) };
+        let terrain_vao = unsafe { create_vao(&terrain_model) };
+
+        let helicopter_model = Helicopter::load("resources/helicopter.obj");
+
+        let helicopter_body_vao = unsafe { create_vao(&helicopter_model.body) };
+
+        let helicopter_door_vao = unsafe { create_vao(&helicopter_model.door) };
+
+        let helicopter_tail_vao = unsafe { create_vao(&helicopter_model.tail_rotor) };
+
+        let helicopter_main_rotor_vao = unsafe { create_vao(&helicopter_model.main_rotor)};
+
+
 
         // == // Set up your shaders here
 
@@ -343,12 +357,44 @@ fn main() {
 
                 // == // Issue the necessary gl:: commands to draw your scene here
 
-                gl::BindVertexArray(vao);
+                gl::BindVertexArray(terrain_vao);
                 gl::DrawElements(
                     gl::TRIANGLES,
                     terrain_model.indices.len() as i32,
                     gl::UNSIGNED_INT,
                     ptr::null(),
+                );
+
+                gl::BindVertexArray(helicopter_body_vao);
+                gl::DrawElements(
+                    gl::TRIANGLES,
+                    helicopter_model.body.indices.len() as i32,
+                    gl::UNSIGNED_INT,
+                    ptr::null(),
+                );
+
+                gl::BindVertexArray(helicopter_door_vao);
+                gl::DrawElements(
+                    gl::TRIANGLES,
+                    helicopter_model.door.indices.len() as i32,
+                    gl::UNSIGNED_INT,
+                    ptr::null(),
+                );
+
+                gl::BindVertexArray(helicopter_tail_vao);
+                gl::DrawElements(
+                    gl::TRIANGLES,
+                    helicopter_model.tail_rotor.indices.len() as i32,
+                    gl::UNSIGNED_INT,
+                    ptr::null(),
+                );
+
+                gl::BindVertexArray(helicopter_main_rotor_vao);
+                gl::DrawElements(
+                    gl::TRIANGLES,
+                    helicopter_model.main_rotor.indices.len() as i32,
+                    gl::UNSIGNED_INT,
+                    ptr::null()
                 );
             }
 
