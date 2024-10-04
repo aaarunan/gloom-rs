@@ -15,8 +15,8 @@ use std::{mem, os::raw::c_void, ptr};
 mod mesh;
 mod scene_graph;
 mod shader;
-mod util;
 mod toolbox;
+mod util;
 
 use glutin::event::{
     DeviceEvent,
@@ -158,17 +158,27 @@ unsafe fn draw_scene(
     let translate_origin: glm::Mat4 = glm::translation(&-node.reference_point);
     let translate_reference: glm::Mat4 = glm::translation(&node.reference_point);
 
-    let rotation_x = glm::rotation(node.rotation.x, &glm::vec3(1_f32, 0_f32, 0_f32));
-    let rotation_y = glm::rotation(node.rotation.y, &glm::vec3(0_f32, 1_f32, 0_f32));
-    let rotation_z = glm::rotation(node.rotation.z, &glm::vec3(0_f32, 0_f32, 1_f32));
+    let pitch_transform = glm::rotation(node.rotation.x, &glm::vec3(1_f32, 0_f32, 0_f32));
+    let yaw_transform = glm::rotation(node.rotation.y, &glm::vec3(0_f32, 1_f32, 0_f32));
+    let roll_transform = glm::rotation(
+        node.rotation.z,
+        &glm::vec3(
+            node.rotation.y.sin(),
+            node.rotation.x.sin(),
+            node.rotation.y.cos() * node.rotation.x.cos(),
+        ),
+    );
 
     let translation = glm::translation(&node.position);
 
-
-    let model_matrix =   translation * translate_reference * rotation_x * rotation_y * rotation_z  * translate_origin;
+    let model_matrix = translation
+        * translate_reference
+        * roll_transform
+        * yaw_transform
+        * pitch_transform
+        * translate_origin;
 
     let model_view_projection = view_projection_matrix * transformation_so_far * model_matrix;
-
 
     gl::UniformMatrix4fv(0, 1, gl::FALSE, model_view_projection.as_ptr());
     gl::UniformMatrix4fv(1, 1, gl::FALSE, model_matrix.as_ptr());
@@ -182,7 +192,11 @@ unsafe fn draw_scene(
     );
 
     for &child in &node.children {
-        draw_scene(&*child, view_projection_matrix, &(transformation_so_far*model_matrix));
+        draw_scene(
+            &*child,
+            view_projection_matrix,
+            &(transformation_so_far * model_matrix),
+        );
     }
 }
 
@@ -306,11 +320,10 @@ fn main() {
         helicopter_body_node.add_child(&helicopter_tail_node);
         helicopter_body_node.add_child(&helicopter_main_rotor_node);
 
-
         // == // Set up your shaders here
 
         unsafe {
-            shader::ShaderBuilder::new()        
+            shader::ShaderBuilder::new()
                 .attach_file("./shaders/simple.frag")
                 .attach_file("./shaders/simple.vert")
                 .link()
@@ -319,10 +332,8 @@ fn main() {
 
         // Helicopter rotor rotation
 
-        let main_rotor_speed = 10_f32;
-
-        let tail_rotor_speed = 5_f32;
-
+        let main_rotor_speed = 15_f32;
+        let tail_rotor_speed = 20_f32;
 
         // The main rendering loop
         let first_frame_time = std::time::Instant::now();
@@ -354,18 +365,17 @@ fn main() {
 
             let helicopter_movement = toolbox::simple_heading_animation(elapsed);
 
-            helicopter_body_node.rotation.z = helicopter_movement.pitch/100_f32;
-            helicopter_body_node.rotation.y = helicopter_movement.yaw/100_f32;
-            helicopter_body_node.rotation.x = helicopter_movement.roll/100_f32;
-
-            helicopter_body_node.position = glm::vec3(helicopter_movement.x/100_f32, 0_f32, helicopter_movement.z/100_f32);
+            helicopter_body_node.rotation.z = helicopter_movement.roll;
+            helicopter_body_node.rotation.y = helicopter_movement.yaw;
+            helicopter_body_node.rotation.x = helicopter_movement.pitch;
+            helicopter_body_node.position = glm::vec3(
+                helicopter_movement.x / 100_f32,
+                0_f32,
+                helicopter_movement.z / 100_f32,
+            );
 
             helicopter_main_rotor_node.rotation.y = main_rotor_speed * elapsed;
-
             helicopter_tail_node.rotation.x = tail_rotor_speed * elapsed;
-
-
-
 
             // Handle resize events
             if let Ok(mut new_size) = window_size.lock() {
