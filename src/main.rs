@@ -16,6 +16,7 @@ mod mesh;
 mod scene_graph;
 mod shader;
 mod util;
+mod toolbox;
 
 use glutin::event::{
     DeviceEvent,
@@ -161,10 +162,13 @@ unsafe fn draw_scene(
     let rotation_y = glm::rotation(node.rotation.y, &glm::vec3(0_f32, 1_f32, 0_f32));
     let rotation_z = glm::rotation(node.rotation.z, &glm::vec3(0_f32, 0_f32, 1_f32));
 
+    let translation = glm::translation(&node.position);
 
-    let model_matrix =   translate_reference* rotation_x * rotation_y * rotation_z  * translate_origin;
+
+    let model_matrix =   translation * translate_reference * rotation_x * rotation_y * rotation_z  * translate_origin;
 
     let model_view_projection = view_projection_matrix * transformation_so_far * model_matrix;
+
 
     gl::UniformMatrix4fv(0, 1, gl::FALSE, model_view_projection.as_ptr());
 
@@ -177,7 +181,7 @@ unsafe fn draw_scene(
     );
 
     for &child in &node.children {
-        draw_scene(&*child, view_projection_matrix, transformation_so_far);
+        draw_scene(&*child, view_projection_matrix, &(transformation_so_far*model_matrix));
     }
 }
 
@@ -293,25 +297,31 @@ fn main() {
             helicopter_main_rotor_vao,
             helicopter_model.main_rotor.indices.len() as i32,
         );
-
-        helicopter_body_node.add_child(&helicopter_door_node);
-        helicopter_body_node.add_child(&helicopter_tail_node);
-        helicopter_body_node.add_child(&helicopter_main_rotor_node);
-        helicopter_body_node.print();
-
         let mut terrain_node = SceneNode::from_vao(terrain_vao, terrain_model.indices.len() as i32);
 
         terrain_node.add_child(&helicopter_body_node);
 
+        helicopter_body_node.add_child(&helicopter_door_node);
+        helicopter_body_node.add_child(&helicopter_tail_node);
+        helicopter_body_node.add_child(&helicopter_main_rotor_node);
+
+
         // == // Set up your shaders here
 
         unsafe {
-            shader::ShaderBuilder::new()
+            shader::ShaderBuilder::new()        
                 .attach_file("./shaders/simple.frag")
                 .attach_file("./shaders/simple.vert")
                 .link()
                 .activate();
         }
+
+        // Helicopter rotor rotation
+
+        let main_rotor_speed = 10_f32;
+
+        let tail_rotor_speed = 5_f32;
+
 
         // The main rendering loop
         let first_frame_time = std::time::Instant::now();
@@ -341,15 +351,20 @@ fn main() {
             let transformation =
                 projection * pitch_t * yaw_t * forward_t * sideways_t * up_t * mirror_flip;
 
-            // Helicopter rotor rotation
+            let helicopter_movement = toolbox::simple_heading_animation(elapsed);
 
-            let main_rotor_speed = 10_f32;
+            helicopter_body_node.rotation.z = helicopter_movement.pitch/100_f32;
+            helicopter_body_node.rotation.y = helicopter_movement.yaw/100_f32;
+            helicopter_body_node.rotation.x = helicopter_movement.roll/100_f32;
 
-            let tail_rotor_speed = 5_f32;
+            helicopter_body_node.position = glm::vec3(helicopter_movement.x/100_f32, 0_f32, helicopter_movement.z/100_f32);
 
             helicopter_main_rotor_node.rotation.y = main_rotor_speed * elapsed;
 
             helicopter_tail_node.rotation.x = tail_rotor_speed * elapsed;
+
+
+
 
             // Handle resize events
             if let Ok(mut new_size) = window_size.lock() {
