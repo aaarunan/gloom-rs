@@ -171,6 +171,7 @@ unsafe fn draw_scene(
 
 
     gl::UniformMatrix4fv(0, 1, gl::FALSE, model_view_projection.as_ptr());
+    gl::UniformMatrix4fv(1, 1, gl::FALSE, model_matrix.as_ptr());
 
     gl::BindVertexArray(node.vao_id);
     gl::DrawElements(
