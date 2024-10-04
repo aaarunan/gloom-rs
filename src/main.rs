@@ -200,6 +200,42 @@ unsafe fn draw_scene(
     }
 }
 
+fn create_helicopter(
+    offset: glm::TVec3<f32>,
+) -> (
+    std::mem::ManuallyDrop<std::pin::Pin<std::boxed::Box<scene_graph::SceneNode>>>,
+    glm::TVec3<f32>,
+) {
+    let helicopter_model = Helicopter::load("resources/helicopter.obj");
+    let helicopter_body_vao = unsafe { create_vao(&helicopter_model.body) };
+    let helicopter_door_vao = unsafe { create_vao(&helicopter_model.door) };
+    let helicopter_tail_vao = unsafe { create_vao(&helicopter_model.tail_rotor) };
+    let helicopter_main_rotor_vao = unsafe { create_vao(&helicopter_model.main_rotor) };
+    // Set up scene graph
+    let mut helicopter_body_node = SceneNode::from_vao(
+        helicopter_body_vao,
+        helicopter_model.body.indices.len() as i32,
+    );
+    let helicopter_door_node = SceneNode::from_vao(
+        helicopter_door_vao,
+        helicopter_model.door.indices.len() as i32,
+    );
+    let mut helicopter_tail_node = SceneNode::from_vao(
+        helicopter_tail_vao,
+        helicopter_model.tail_rotor.indices.len() as i32,
+    );
+    helicopter_tail_node.reference_point = glm::vec3(0.035_f32, 0.023_f32, 0.104_f32);
+    let helicopter_main_rotor_node = SceneNode::from_vao(
+        helicopter_main_rotor_vao,
+        helicopter_model.main_rotor.indices.len() as i32,
+    );
+    helicopter_body_node.add_child(&helicopter_main_rotor_node);
+    helicopter_body_node.add_child(&helicopter_tail_node);
+    helicopter_body_node.add_child(&helicopter_door_node);
+
+    (helicopter_body_node, offset)
+}
+
 fn main() {
     // Set up the necessary objects to deal with windows and event handling
     let el = glutin::event_loop::EventLoop::new();
@@ -280,45 +316,17 @@ fn main() {
         let terrain_model = Terrain::load("resources/lunarsurface.obj");
         let terrain_vao = unsafe { create_vao(&terrain_model) };
 
-        let helicopter_model = Helicopter::load("resources/helicopter.obj");
-
-        let helicopter_body_vao = unsafe { create_vao(&helicopter_model.body) };
-
-        let helicopter_door_vao = unsafe { create_vao(&helicopter_model.door) };
-
-        let helicopter_tail_vao = unsafe { create_vao(&helicopter_model.tail_rotor) };
-
-        let helicopter_main_rotor_vao = unsafe { create_vao(&helicopter_model.main_rotor) };
-
-        // Set up scene graph
-
-        let mut helicopter_body_node = SceneNode::from_vao(
-            helicopter_body_vao,
-            helicopter_model.body.indices.len() as i32,
-        );
-
-        let helicopter_door_node = SceneNode::from_vao(
-            helicopter_door_vao,
-            helicopter_model.door.indices.len() as i32,
-        );
-
-        let mut helicopter_tail_node = SceneNode::from_vao(
-            helicopter_tail_vao,
-            helicopter_model.tail_rotor.indices.len() as i32,
-        );
-        helicopter_tail_node.reference_point = glm::vec3(0.035_f32, 0.023_f32, 0.104_f32);
-
-        let mut helicopter_main_rotor_node = SceneNode::from_vao(
-            helicopter_main_rotor_vao,
-            helicopter_model.main_rotor.indices.len() as i32,
-        );
+        let mut helicopters = [
+            create_helicopter(glm::vec3(0_f32, 0_f32, 0_f32)),
+            create_helicopter(glm::vec3(10_f32, 20_f32, 40_f32)),
+            create_helicopter(glm::vec3(0_f32, 15_f32, 25_f32)),
+            create_helicopter(glm::vec3(0_f32, 10_f32, 30_f32)),
+            create_helicopter(glm::vec3(0_f32, 5_f32, -30_f32)),
+        ];
         let mut terrain_node = SceneNode::from_vao(terrain_vao, terrain_model.indices.len() as i32);
-
-        terrain_node.add_child(&helicopter_body_node);
-
-        helicopter_body_node.add_child(&helicopter_door_node);
-        helicopter_body_node.add_child(&helicopter_tail_node);
-        helicopter_body_node.add_child(&helicopter_main_rotor_node);
+        helicopters
+            .iter()
+            .for_each(|h| terrain_node.add_child(&h.0));
 
         // == // Set up your shaders here
 
@@ -365,17 +373,15 @@ fn main() {
 
             let helicopter_movement = toolbox::simple_heading_animation(elapsed);
 
-            helicopter_body_node.rotation.z = helicopter_movement.roll;
-            helicopter_body_node.rotation.y = helicopter_movement.yaw;
-            helicopter_body_node.rotation.x = helicopter_movement.pitch;
-            helicopter_body_node.position = glm::vec3(
-                helicopter_movement.x / 100_f32,
-                0_f32,
-                helicopter_movement.z / 100_f32,
-            );
-
-            helicopter_main_rotor_node.rotation.y = main_rotor_speed * elapsed;
-            helicopter_tail_node.rotation.x = tail_rotor_speed * elapsed;
+            helicopters.iter_mut().for_each(|h| {
+                h.0.rotation.z = helicopter_movement.roll;
+                h.0.rotation.y = helicopter_movement.yaw;
+                h.0.rotation.x = helicopter_movement.pitch;
+                h.0.position = 1_f32 / 100_f32
+                    * (h.1 + glm::vec3(helicopter_movement.x, 0_f32, helicopter_movement.z));
+                unsafe { (*h.0.children[0]).rotation.y = main_rotor_speed * elapsed };
+                unsafe { (*h.0.children[1]).rotation.x = tail_rotor_speed * elapsed };
+            });
 
             // Handle resize events
             if let Ok(mut new_size) = window_size.lock() {
