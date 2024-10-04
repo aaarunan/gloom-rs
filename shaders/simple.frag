@@ -11,4 +11,3 @@ void main()
     float diffuse = max(0.0, dot(fragNormal, -lightDirection));
     color = vec4(fragColor.rgb * diffuse, fragColor.a);
 }
-

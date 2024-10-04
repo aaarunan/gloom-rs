@@ -10,7 +10,6 @@ out layout(location = 1) vec3 fragNormal;
 uniform layout(location = 0) mat4 t;
 uniform layout(location = 1) mat4 t_m;
 
-
 void main()
 {
     gl_Position = t * vec4(position, 100.0);
