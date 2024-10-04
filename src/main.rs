@@ -149,6 +149,7 @@ unsafe fn draw_scene(
     node: &scene_graph::SceneNode,
     view_projection_matrix: &glm::Mat4,
     transformation_so_far: &glm::Mat4,
+    camera_pos: &glm::TVec3<f32>,
 ) {
     // Perform any logic needed before drawing the node
     // Check if node is drawable, if so: set uniforms, bind VAO and draw VAO
@@ -182,6 +183,7 @@ unsafe fn draw_scene(
 
     gl::UniformMatrix4fv(0, 1, gl::FALSE, model_view_projection.as_ptr());
     gl::UniformMatrix4fv(1, 1, gl::FALSE, model_matrix.as_ptr());
+    gl::Uniform3f(2, camera_pos.x, camera_pos.y, camera_pos.z);
 
     gl::BindVertexArray(node.vao_id);
     gl::DrawElements(
@@ -196,6 +198,7 @@ unsafe fn draw_scene(
             &*child,
             view_projection_matrix,
             &(transformation_so_far * model_matrix),
+            camera_pos,
         );
     }
 }
@@ -368,11 +371,17 @@ fn main() {
                 -1_f32, 0_f32, 0_f32, 0_f32, 0_f32, -1_f32, 0_f32, 0_f32, 0_f32, 0_f32, 1_f32,
                 0_f32, 0_f32, 0_f32, 0_f32, 1_f32,
             );
-            let transformation =
-                projection * &glm::translate(&glm::identity::<f32, 4>(), &glm::vec3(0_f32, 0.1_f32,-0.5_f32)) * pitch_t * yaw_t * forward_t * sideways_t * up_t * mirror_flip;
+            let camera_offset = glm::vec3(0_f32, 0.1_f32, -0.5_f32);
+            let transformation = projection
+                * &glm::translate(&glm::identity::<f32, 4>(), &camera_offset)
+                * pitch_t
+                * yaw_t
+                * forward_t
+                * sideways_t
+                * up_t
+                * mirror_flip;
 
             let helicopter_movement = toolbox::simple_heading_animation(elapsed);
-
 
             helicopters.iter_mut().for_each(|h| {
                 h.0.rotation.z = helicopter_movement.roll;
@@ -475,7 +484,12 @@ fn main() {
 
                 // Draw the scene
 
-                draw_scene(&terrain_node, &transformation, &glm::identity::<f32, 4>());
+                draw_scene(
+                    &terrain_node,
+                    &transformation,
+                    &glm::identity::<f32, 4>(),
+                    &(camera_offset + glm::vec3(x, y, z)),
+                );
             }
 
             // Display the new color buffer on the display
