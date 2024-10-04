@@ -154,6 +154,20 @@ unsafe fn draw_scene(
     // Recurse
     // == // Issue the necessary gl:: commands to draw your scene here
 
+    let translate_origin: glm::Mat4 = glm::translation(&-node.reference_point);
+    let translate_reference: glm::Mat4 = glm::translation(&node.reference_point);
+
+    let rotation_x = glm::rotation(node.rotation.x, &glm::vec3(1_f32, 0_f32, 0_f32));
+    let rotation_y = glm::rotation(node.rotation.y, &glm::vec3(0_f32, 1_f32, 0_f32));
+    let rotation_z = glm::rotation(node.rotation.z, &glm::vec3(0_f32, 0_f32, 1_f32));
+
+
+    let model_matrix =   translate_reference* rotation_x * rotation_y * rotation_z  * translate_origin;
+
+    let model_view_projection = view_projection_matrix * transformation_so_far * model_matrix;
+
+    gl::UniformMatrix4fv(0, 1, gl::FALSE, model_view_projection.as_ptr());
+
     gl::BindVertexArray(node.vao_id);
     gl::DrawElements(
         gl::TRIANGLES,
@@ -269,12 +283,13 @@ fn main() {
             helicopter_model.door.indices.len() as i32,
         );
 
-        let helicopter_tail_node = SceneNode::from_vao(
+        let mut helicopter_tail_node = SceneNode::from_vao(
             helicopter_tail_vao,
             helicopter_model.tail_rotor.indices.len() as i32,
         );
+        helicopter_tail_node.reference_point = glm::vec3(0.035_f32, 0.023_f32, 0.104_f32);
 
-        let helicopter_main_rotor_node = SceneNode::from_vao(
+        let mut helicopter_main_rotor_node = SceneNode::from_vao(
             helicopter_main_rotor_vao,
             helicopter_model.main_rotor.indices.len() as i32,
         );
@@ -308,6 +323,7 @@ fn main() {
             let delta_time = now.duration_since(previous_frame_time).as_secs_f32();
             previous_frame_time = now;
 
+            // Camera transformation
             let projection = glm::perspective(window_aspect_ratio, 81_f32, 0.1_f32, 100_f32);
 
             let forward_t = glm::translate(&glm::identity::<f32, 4>(), &glm::vec3(0_f32, 0_f32, z));
@@ -324,7 +340,16 @@ fn main() {
             );
             let transformation =
                 projection * pitch_t * yaw_t * forward_t * sideways_t * up_t * mirror_flip;
-            unsafe { gl::UniformMatrix4fv(0, 1, gl::FALSE, transformation.as_ptr()) };
+
+            // Helicopter rotor rotation
+
+            let main_rotor_speed = 10_f32;
+
+            let tail_rotor_speed = 5_f32;
+
+            helicopter_main_rotor_node.rotation.y = main_rotor_speed * elapsed;
+
+            helicopter_tail_node.rotation.x = tail_rotor_speed * elapsed;
 
             // Handle resize events
             if let Ok(mut new_size) = window_size.lock() {
