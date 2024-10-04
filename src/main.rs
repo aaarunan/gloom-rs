@@ -201,11 +201,7 @@ unsafe fn draw_scene(
 }
 
 fn create_helicopter(
-    offset: glm::TVec3<f32>,
-) -> (
-    std::mem::ManuallyDrop<std::pin::Pin<std::boxed::Box<scene_graph::SceneNode>>>,
-    glm::TVec3<f32>,
-) {
+) -> std::mem::ManuallyDrop<std::pin::Pin<std::boxed::Box<scene_graph::SceneNode>>> {
     let helicopter_model = Helicopter::load("resources/helicopter.obj");
     let helicopter_body_vao = unsafe { create_vao(&helicopter_model.body) };
     let helicopter_door_vao = unsafe { create_vao(&helicopter_model.door) };
@@ -233,7 +229,7 @@ fn create_helicopter(
     helicopter_body_node.add_child(&helicopter_tail_node);
     helicopter_body_node.add_child(&helicopter_door_node);
 
-    (helicopter_body_node, offset)
+    helicopter_body_node
 }
 
 fn main() {
@@ -317,11 +313,11 @@ fn main() {
         let terrain_vao = unsafe { create_vao(&terrain_model) };
 
         let mut helicopters = [
-            create_helicopter(glm::vec3(0_f32, 0_f32, 0_f32)),
-            create_helicopter(glm::vec3(10_f32, 20_f32, 40_f32)),
-            create_helicopter(glm::vec3(0_f32, 15_f32, 25_f32)),
-            create_helicopter(glm::vec3(0_f32, 10_f32, 30_f32)),
-            create_helicopter(glm::vec3(0_f32, 5_f32, -30_f32)),
+            (create_helicopter(), glm::vec3(0_f32, 0_f32, 0_f32)),
+            (create_helicopter(), glm::vec3(10_f32, 20_f32, 40_f32)),
+            (create_helicopter(), glm::vec3(0_f32, 15_f32, 25_f32)),
+            (create_helicopter(), glm::vec3(0_f32, 10_f32, 30_f32)),
+            (create_helicopter(), glm::vec3(0_f32, 5_f32, -30_f32)),
         ];
         let mut terrain_node = SceneNode::from_vao(terrain_vao, terrain_model.indices.len() as i32);
         helicopters
