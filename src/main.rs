@@ -439,6 +439,7 @@ fn main() {
                         VirtualKeyCode::Space => y += delta_time * movement_speed,
                         VirtualKeyCode::Left => yaw += delta_time * rotation_speed,
                         VirtualKeyCode::Right => yaw -= delta_time * rotation_speed,
+                        VirtualKeyCode::LShift => y -= delta_time * movement_speed,
                         VirtualKeyCode::Up => {
                             pitch = f32::min(
                                 pitch + delta_time * rotation_speed,
