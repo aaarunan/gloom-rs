@@ -342,6 +342,10 @@ fn main() {
         // The main rendering loop
         let first_frame_time = std::time::Instant::now();
         let mut previous_frame_time = first_frame_time;
+
+        let mut helicopter = create_helicopter();
+        terrain_node.add_child(&helicopter);
+
         loop {
             // Compute time passed since the previous frame and since the start of the program
             let now = std::time::Instant::now();
@@ -365,9 +369,10 @@ fn main() {
                 0_f32, 0_f32, 0_f32, 0_f32, 1_f32,
             );
             let transformation =
-                projection * pitch_t * yaw_t * forward_t * sideways_t * up_t * mirror_flip;
+                projection * &glm::translate(&glm::identity::<f32, 4>(), &glm::vec3(0_f32, 0.1_f32,-0.5_f32)) * pitch_t * yaw_t * forward_t * sideways_t * up_t * mirror_flip;
 
             let helicopter_movement = toolbox::simple_heading_animation(elapsed);
+
 
             helicopters.iter_mut().for_each(|h| {
                 h.0.rotation.z = helicopter_movement.roll;
@@ -378,6 +383,12 @@ fn main() {
                 unsafe { (*h.0.children[0]).rotation.y = main_rotor_speed * elapsed };
                 unsafe { (*h.0.children[1]).rotation.x = tail_rotor_speed * elapsed };
             });
+
+            unsafe { (*helicopter.children[0]).rotation.y = main_rotor_speed * elapsed };
+            unsafe { (*helicopter.children[1]).rotation.x = tail_rotor_speed * elapsed };
+            helicopter.rotation.y = yaw;
+            helicopter.rotation.x = pitch;
+            helicopter.position = glm::vec3(x, y, -z);
 
             // Handle resize events
             if let Ok(mut new_size) = window_size.lock() {
@@ -426,7 +437,6 @@ fn main() {
                             z -= delta_time * movement_speed * forward.z;
                         }
                         VirtualKeyCode::Space => y += delta_time * movement_speed,
-                        VirtualKeyCode::LShift => y -= delta_time * movement_speed,
                         VirtualKeyCode::Left => yaw += delta_time * rotation_speed,
                         VirtualKeyCode::Right => yaw -= delta_time * rotation_speed,
                         VirtualKeyCode::Up => {
