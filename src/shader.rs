@@ -69,7 +69,7 @@ impl ShaderBuilder {
             let shader_type =
                 ShaderType::from_ext(extension).expect("Failed to parse file extension.");
             let shader_src = std::fs::read_to_string(path)
-                .expect(&format!("Failed to read shader source. {}", shader_path));
+                .unwrap_or_else(|_| panic!("Failed to read shader source. {}", shader_path));
             self.compile_shader(&shader_src, shader_type)
         } else {
             panic!(
@@ -98,6 +98,7 @@ impl ShaderBuilder {
         self
     }
 
+    #[allow(clippy::uninit_vec)]
     unsafe fn check_shader_errors(&self, shader_id: u32) -> bool {
         let mut success = i32::from(gl::FALSE);
         let mut info_log = Vec::with_capacity(512);
@@ -119,6 +120,7 @@ impl ShaderBuilder {
         true
     }
 
+    #[allow(clippy::uninit_vec)]
     unsafe fn check_linker_errors(&self) -> bool {
         let mut success = i32::from(gl::FALSE);
         let mut info_log = Vec::with_capacity(512);

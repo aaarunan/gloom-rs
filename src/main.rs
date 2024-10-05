@@ -373,7 +373,7 @@ fn main() {
             );
             let camera_offset = glm::vec3(0_f32, 0.1_f32, -0.5_f32);
             let transformation = projection
-                * &glm::translate(&glm::identity::<f32, 4>(), &camera_offset)
+                * glm::translate(&glm::identity::<f32, 4>(), &camera_offset)
                 * pitch_t
                 * yaw_t
                 * forward_t
@@ -404,7 +404,7 @@ fn main() {
                 if new_size.2 {
                     context.resize(glutin::dpi::PhysicalSize::new(new_size.0, new_size.1));
                     window_aspect_ratio = new_size.0 as f32 / new_size.1 as f32;
-                    (*new_size).2 = false;
+                    new_size.2 = false;
                     println!("Window was resized to {}x{}", new_size.0, new_size.1);
                     unsafe {
                         gl::Viewport(0, 0, new_size.0 as i32, new_size.1 as i32);
@@ -505,7 +505,7 @@ fn main() {
     let render_thread_healthy = Arc::new(RwLock::new(true));
     let render_thread_watchdog = Arc::clone(&render_thread_healthy);
     thread::spawn(move || {
-        if !render_thread.join().is_ok() {
+        if render_thread.join().is_err() {
             if let Ok(mut health) = render_thread_watchdog.write() {
                 println!("Render thread panicked!");
                 *health = false;
@@ -519,7 +519,7 @@ fn main() {
 
         // Terminate program if render thread panics
         if let Ok(health) = render_thread_healthy.read() {
-            if *health == false {
+            if !(*health) {
                 *control_flow = ControlFlow::Exit;
             }
         }
